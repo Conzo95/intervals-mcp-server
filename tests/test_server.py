@@ -34,6 +34,7 @@ from intervals_mcp_server.server import (  # pylint: disable=wrong-import-positi
     get_activity_intervals,
     get_activity_messages,
     get_activity_streams,
+    get_activity_histogram,
     get_athlete_power_curves,
     get_athlete_zones,
     get_event_by_id,
@@ -1308,3 +1309,81 @@ def test_get_athlete_zones_no_athlete_id(monkeypatch):
         assert "Error" in result or "No athlete ID" in result
     finally:
         config_module._config_instance = original
+
+
+def test_get_activity_histogram_power(monkeypatch):
+    """
+    Test get_activity_histogram returns JSON data for power histogram.
+    """
+    sample = [{"secs": 10, "watts": 200}, {"secs": 20, "watts": 210}]
+
+    async def fake_request(*_args, **_kwargs):
+        return sample
+
+    monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
+    monkeypatch.setattr(
+        "intervals_mcp_server.tools.activities.make_intervals_request", fake_request
+    )
+    result = asyncio.run(get_activity_histogram("123", histogram_type="power", bucket_size=10))
+    assert "200" in result
+    assert "210" in result
+
+
+def test_get_activity_histogram_hr(monkeypatch):
+    """
+    Test get_activity_histogram returns JSON data for heart rate histogram.
+    """
+    sample = [{"secs": 30, "hr": 140}, {"secs": 60, "hr": 150}]
+
+    async def fake_request(*_args, **_kwargs):
+        return sample
+
+    monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
+    monkeypatch.setattr(
+        "intervals_mcp_server.tools.activities.make_intervals_request", fake_request
+    )
+    result = asyncio.run(get_activity_histogram("123", histogram_type="hr", bucket_size=5))
+    assert "140" in result
+    assert "150" in result
+
+
+def test_get_activity_histogram_pace(monkeypatch):
+    """
+    Test get_activity_histogram returns JSON data for pace histogram.
+    """
+    sample = [{"secs": 15, "pace": 5.5}, {"secs": 25, "pace": 5.8}]
+
+    async def fake_request(*_args, **_kwargs):
+        return sample
+
+    monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
+    monkeypatch.setattr(
+        "intervals_mcp_server.tools.activities.make_intervals_request", fake_request
+    )
+    result = asyncio.run(get_activity_histogram("123", histogram_type="pace"))
+    assert "5.5" in result
+    assert "5.8" in result
+
+
+def test_get_activity_histogram_invalid_type(monkeypatch):
+    """
+    Test get_activity_histogram returns an error for an invalid histogram type.
+    """
+    result = asyncio.run(get_activity_histogram("123", histogram_type="speed"))
+    assert "Invalid histogram_type" in result
+
+
+def test_get_activity_histogram_error(monkeypatch):
+    """
+    Test get_activity_histogram returns an error message on API failure.
+    """
+
+    async def fake_request(*_args, **_kwargs):
+        return {"error": True, "message": "Not found"}
+
+    monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
+    monkeypatch.setattr(
+        "intervals_mcp_server.tools.activities.make_intervals_request", fake_request
+    )
+    result = asyncio.run(get_activity_histogram("999", histogram_type="power"))
+    assert "Error fetching power histogram" in result

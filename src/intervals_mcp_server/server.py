@@ -77,6 +77,7 @@ from intervals_mcp_server.tools.activities import (  # pylint: disable=wrong-imp
     get_activity_intervals,
     get_activity_messages,
     get_activity_streams,
+    get_activity_histogram,
 )
 from intervals_mcp_server.tools.events import (  # pylint: disable=wrong-import-position  # noqa: E402
     add_or_update_event,
@@ -110,6 +111,7 @@ __all__ = [
     "get_activity_intervals",
     "get_activity_messages",
     "get_activity_streams",
+    "get_activity_histogram",
     "get_events",
     "get_event_by_id",
     "delete_event",
