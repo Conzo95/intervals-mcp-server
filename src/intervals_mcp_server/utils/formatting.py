@@ -129,6 +129,51 @@ def _add_running_dynamics(lines: list[str], data: dict[str, Any]) -> None:
         _add_field(lines, label, data.get(key), unit)
 
 
+_RUN_TYPES = {"Run", "VirtualRun", "TrailRun"}
+
+
+def _is_run_type(activity_type: Any) -> bool:
+    """True for activity types where running conventions (pace, steps/min) apply."""
+    return isinstance(activity_type, str) and activity_type in _RUN_TYPES
+
+
+def _format_pace_per_km(speed_ms: Any) -> str | None:
+    """Convert a speed in m/s to an 'M:SS /km' pace string, or None if not derivable."""
+    if not isinstance(speed_ms, (int, float)) or speed_ms <= 0:
+        return None
+    secs = round(1000.0 / speed_ms)
+    return f"{secs // 60}:{secs % 60:02d} /km"
+
+
+def _running_cadence_spm(cadence_rpm: Any) -> int | None:
+    """intervals.icu stores run cadence as one-leg rpm; report steps/min (both legs), as Garmin does."""
+    if not isinstance(cadence_rpm, (int, float)):
+        return None
+    return round(cadence_rpm * 2)
+
+
+def _add_speed_cadence(
+    fields: list[str],
+    data: dict[str, Any],
+    is_run: bool,
+    *,
+    speed_label: str = "Avg Speed",
+    cadence_label: str = "Avg Cadence",
+    include_gap: bool = False,
+) -> None:
+    """Append speed and cadence: pace (M:SS /km) + steps/min for runs, m/s + rpm otherwise."""
+    if is_run:
+        _add_field(fields, "Pace", _format_pace_per_km(data.get("average_speed")))
+        if include_gap:
+            _add_field(fields, "GAP", _format_pace_per_km(data.get("gap")))
+        _add_field(fields, cadence_label, _running_cadence_spm(data.get("average_cadence")), "spm")
+    else:
+        _add_field(fields, speed_label, data.get("average_speed"), "m/s")
+        if include_gap:
+            _add_field(fields, "GAP", data.get("gap"), "m/s")
+        _add_field(fields, cadence_label, data.get("average_cadence"), "rpm")
+
+
 def _build_ignore_flag_lines(data: dict[str, Any], prefix: str = "  ") -> list[str]:
     """Build ignore-flag lines for activity data, only including flags that are True."""
     lines: list[str] = []
@@ -219,10 +264,17 @@ def format_activity_summary(activity: dict[str, Any]) -> str:
     _add_section(lines, "  HR:", hr_lines)
 
     # Other metrics - only non-None
+    is_run = _is_run_type(activity.get("type"))
     other_lines: list[str] = []
-    _add_field(other_lines, "Cadence", activity.get("average_cadence"), "rpm")
+    if is_run:
+        _add_field(other_lines, "Cadence", _running_cadence_spm(activity.get("average_cadence")), "spm")
+    else:
+        _add_field(other_lines, "Cadence", activity.get("average_cadence"), "rpm")
     _add_field(other_lines, "Calories", activity.get("calories"))
-    _add_field(other_lines, "Avg Speed", activity.get("average_speed"), "m/s")
+    if is_run:
+        _add_field(other_lines, "Pace", _format_pace_per_km(activity.get("average_speed")))
+    else:
+        _add_field(other_lines, "Avg Speed", activity.get("average_speed"), "m/s")
     _add_field(other_lines, "Avg Stride", activity.get("average_stride"))
     _add_field(other_lines, "L/R Balance", activity.get("avg_lr_balance"))
     _add_field(other_lines, "Weight", activity.get("icu_weight"), "kg")
@@ -788,15 +840,18 @@ def format_custom_item_details(item: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def format_intervals(intervals_data: dict[str, Any]) -> str:
+def format_intervals(intervals_data: dict[str, Any], activity_type: str | None = None) -> str:
     """Format intervals data into a readable string, omitting fields with no data.
 
     Args:
         intervals_data: The intervals data from the Intervals.icu API
+        activity_type: The parent activity's type (e.g. "Run"); when it is a running
+            type, speed is shown as pace (M:SS /km) and cadence as steps/min.
 
     Returns:
         A formatted string representation of the intervals data
     """
+    is_run = _is_run_type(activity_type) or _is_run_type(intervals_data.get("type"))
     result = f"Intervals Analysis: ID={intervals_data.get('id', 'N/A')}\n\n"
 
     if "icu_intervals" in intervals_data and intervals_data["icu_intervals"]:
@@ -828,9 +883,7 @@ def format_intervals(intervals_data: dict[str, Any]) -> str:
             _add_field(fields, "Max HR", iv.get("max_heartrate"), "bpm")
             _add_field(fields, "Decoupling", iv.get("decoupling"))
             # Speed / Cadence
-            _add_field(fields, "Avg Speed", iv.get("average_speed"), "m/s")
-            _add_field(fields, "GAP", iv.get("gap"), "m/s")
-            _add_field(fields, "Avg Cadence", iv.get("average_cadence"), "rpm")
+            _add_speed_cadence(fields, iv, is_run, include_gap=True)
             _add_field(fields, "Stride", iv.get("average_stride"))
             _add_running_dynamics(fields, iv)
             # Elevation / environment
@@ -857,8 +910,7 @@ def format_intervals(intervals_data: dict[str, Any]) -> str:
             fields = []
             _add_field(fields, "Avg Pwr", group.get("average_watts"), "W")
             _add_field(fields, "Avg HR", group.get("average_heartrate"), "bpm")
-            _add_field(fields, "Avg Speed", group.get("average_speed"), "m/s")
-            _add_field(fields, "Avg Cadence", group.get("average_cadence"), "rpm")
+            _add_speed_cadence(fields, group, is_run)
             _add_running_dynamics(fields, group)
             if fields:
                 result += "\n".join(fields) + "\n"
