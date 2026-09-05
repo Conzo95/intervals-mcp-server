@@ -247,16 +247,18 @@ async def get_activity_intervals(activity_id: str, api_key: str = "") -> str:
     ):
         return f"No interval data or unrecognized format for activity {activity_id}."
 
-    # Fetch activity details to get ignore flags
+    # Fetch activity details to get ignore flags and the activity type
     ignore_flags_text = ""
+    activity_type: str | None = None
     activity_result = await make_intervals_request(
         url=f"/activity/{activity_id}", api_key=api_key
     )
     if isinstance(activity_result, dict) and "error" not in activity_result:
         ignore_flags_text = format_ignore_flags(activity_result)
+        activity_type = activity_result.get("type")
 
     # Format the intervals data
-    return ignore_flags_text + format_intervals(result)
+    return ignore_flags_text + format_intervals(result, activity_type)
 
 
 @mcp.tool(annotations=ToolAnnotations(title="Get Activity Histogram", readOnlyHint=True, destructiveHint=False))
