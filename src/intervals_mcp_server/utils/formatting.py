@@ -108,6 +108,27 @@ def _add_section(lines: list[str], heading: str, section_lines: list[str]) -> No
         lines.extend(section_lines)
 
 
+# Running-dynamics averages, present on activities and (as of 2026-08) on
+# every interval and lap. Keys are identical at both levels.
+_RUNNING_DYNAMICS_FIELDS = [
+    ("Stance Time", "average_stance_time", "ms"),
+    ("Stance Time %", "average_stance_time_percent", "%"),
+    ("Stance Time Balance", "average_stance_time_balance", "%"),
+    ("Vertical Oscillation", "average_vertical_oscillation", "mm"),
+    ("Vertical Ratio", "average_vertical_ratio", "%"),
+    ("Vertical Speed", "average_vertical_speed", "m/s"),
+    ("Step Length", "average_step_length", "mm"),
+    ("Leg Spring Stiffness", "average_leg_spring_stiffness", "kN/m"),
+    ("Impact Loading Rate", "average_impact_loading_rate", "bw/s"),
+]
+
+
+def _add_running_dynamics(lines: list[str], data: dict[str, Any]) -> None:
+    """Append any present running-dynamics average fields to lines."""
+    for label, key, unit in _RUNNING_DYNAMICS_FIELDS:
+        _add_field(lines, label, data.get(key), unit)
+
+
 def _build_ignore_flag_lines(data: dict[str, Any], prefix: str = "  ") -> list[str]:
     """Build ignore-flag lines for activity data, only including flags that are True."""
     lines: list[str] = []
@@ -210,17 +231,9 @@ def format_activity_summary(activity: dict[str, Any]) -> str:
     _add_section(lines, "  Metrics:", other_lines)
 
     # Running dynamics - only non-None (populated for runs with a
-    # running-dynamics source: HRM-Pro/Run, HRM-Tri, RD pod, Coros, etc.)
+    # running-dynamics source: HRM-Pro/Run, HRM-Tri, RD pod, Stryd, Coros, etc.)
     rd_lines: list[str] = []
-    _add_field(rd_lines, "Stance Time", activity.get("average_stance_time"), "ms")
-    _add_field(rd_lines, "Stance Time %", activity.get("average_stance_time_percent"), "%")
-    _add_field(rd_lines, "Stance Time Balance", activity.get("average_stance_time_balance"), "%")
-    _add_field(rd_lines, "Vertical Oscillation", activity.get("average_vertical_oscillation"))
-    _add_field(rd_lines, "Vertical Ratio", activity.get("average_vertical_ratio"), "%")
-    _add_field(rd_lines, "Vertical Speed", activity.get("average_vertical_speed"), "m/s")
-    _add_field(rd_lines, "Step Length", activity.get("average_step_length"))
-    _add_field(rd_lines, "Leg Spring Stiffness", activity.get("average_leg_spring_stiffness"))
-    _add_field(rd_lines, "Impact Loading Rate", activity.get("average_impact_loading_rate"))
+    _add_running_dynamics(rd_lines, activity)
     _add_section(lines, "  Running Dynamics:", rd_lines)
 
     # Environment - only if any data exists
@@ -819,6 +832,7 @@ def format_intervals(intervals_data: dict[str, Any]) -> str:
             _add_field(fields, "GAP", iv.get("gap"), "m/s")
             _add_field(fields, "Avg Cadence", iv.get("average_cadence"), "rpm")
             _add_field(fields, "Stride", iv.get("average_stride"))
+            _add_running_dynamics(fields, iv)
             # Elevation / environment
             _add_field(fields, "Elev Gain", iv.get("total_elevation_gain"), "m")
             _add_field(fields, "Gradient", iv.get("average_gradient"), "%")
@@ -845,6 +859,7 @@ def format_intervals(intervals_data: dict[str, Any]) -> str:
             _add_field(fields, "Avg HR", group.get("average_heartrate"), "bpm")
             _add_field(fields, "Avg Speed", group.get("average_speed"), "m/s")
             _add_field(fields, "Avg Cadence", group.get("average_cadence"), "rpm")
+            _add_running_dynamics(fields, group)
             if fields:
                 result += "\n".join(fields) + "\n"
             result += "\n"
