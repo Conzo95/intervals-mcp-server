@@ -64,6 +64,7 @@ def test_format_activity_summary_omits_none_fields():
     assert "Power Meter" not in result
     assert "N/A" not in result
 
+
 def test_format_activity_summary_includes_running_dynamics():
     """
     Test that format_activity_summary surfaces running-dynamics fields when present.
@@ -76,8 +77,9 @@ def test_format_activity_summary_includes_running_dynamics():
         "distance": 10000,
         "duration": 3000,
         "average_stance_time": 245.3,
+        "average_stance_time_percent": 35.5,
         "average_stance_time_balance": 49.8,
-        "average_vertical_oscillation": 8.1,
+        "average_vertical_oscillation": 81.0,
         "average_vertical_ratio": 6.4,
         "average_step_length": 1180.0,
         "average_leg_spring_stiffness": 9.2,
@@ -85,11 +87,12 @@ def test_format_activity_summary_includes_running_dynamics():
     result = format_activity_summary(data)
     assert "Running Dynamics:" in result
     assert "Stance Time: 245.3 ms" in result
+    assert "Stance Time %: 35.5 %" in result
     assert "Stance Time Balance: 49.8 %" in result
-    assert "Vertical Oscillation: 8.1" in result
+    assert "Vertical Oscillation: 81.0 mm" in result
     assert "Vertical Ratio: 6.4 %" in result
-    assert "Step Length: 1180.0" in result
-    assert "Leg Spring Stiffness: 9.2" in result
+    assert "Step Length: 1180.0 mm" in result
+    assert "Leg Spring Stiffness: 9.2 kN/m" in result
 
 
 def test_format_activity_summary_omits_running_dynamics_when_absent():
@@ -107,6 +110,7 @@ def test_format_activity_summary_omits_running_dynamics_when_absent():
     }
     result = format_activity_summary(data)
     assert "Running Dynamics:" not in result
+
 
 def test_format_activity_summary_with_compliance():
     """
@@ -447,6 +451,32 @@ def test_format_intervals():
     result = format_intervals(INTERVALS_DATA)
     assert "Intervals Analysis:" in result
     assert "Rep 1" in result
+
+
+def test_format_intervals_includes_running_dynamics():
+    """
+    Test that per-interval running-dynamics fields are rendered when present.
+    """
+    data = {
+        "id": "i2",
+        "icu_intervals": [
+            {
+                "type": "work",
+                "label": "Stride 1",
+                "elapsed_time": 20,
+                "distance": 80,
+                "average_heartrate": 150,
+                "average_cadence": 88,
+                "average_stance_time": 210.0,
+                "average_vertical_ratio": 7.1,
+                "average_step_length": 1300.0,
+            }
+        ],
+    }
+    result = format_intervals(data)
+    assert "Stance Time: 210.0 ms" in result
+    assert "Vertical Ratio: 7.1 %" in result
+    assert "Step Length: 1300.0 mm" in result
 
 
 def test_format_power_curves():
