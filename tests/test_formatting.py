@@ -76,6 +76,8 @@ def test_format_activity_summary_includes_running_dynamics():
         "startTime": "2024-01-01T08:00:00Z",
         "distance": 10000,
         "duration": 3000,
+        "average_speed": 3.3333,  # -> 5:00 /km
+        "average_cadence": 85,  # -> 170 spm
         "average_stance_time": 245.3,
         "average_stance_time_percent": 35.5,
         "average_stance_time_balance": 49.8,
@@ -86,6 +88,8 @@ def test_format_activity_summary_includes_running_dynamics():
     }
     result = format_activity_summary(data)
     assert "Running Dynamics:" in result
+    assert "Pace: 5:00 /km" in result
+    assert "Cadence: 170 spm" in result
     assert "Stance Time: 245.3 ms" in result
     assert "Stance Time %: 35.5 %" in result
     assert "Stance Time Balance: 49.8 %" in result
@@ -477,6 +481,40 @@ def test_format_intervals_includes_running_dynamics():
     assert "Stance Time: 210.0 ms" in result
     assert "Vertical Ratio: 7.1 %" in result
     assert "Step Length: 1300.0 mm" in result
+
+
+def test_format_intervals_run_uses_pace_and_steps_per_min():
+    """
+    For running activities, interval speed is shown as pace (M:SS /km) and
+    cadence as steps/min (2x the one-leg rpm intervals.icu stores).
+    """
+    data = {
+        "id": "i3",
+        "icu_intervals": [
+            {
+                "type": "work",
+                "label": "Rep 1",
+                "elapsed_time": 300,
+                "distance": 1000,
+                "average_speed": 3.3333,  # -> 5:00 /km
+                "gap": 3.125,  # -> 5:20 /km
+                "average_cadence": 85,  # -> 170 spm
+            }
+        ],
+    }
+    result = format_intervals(data, activity_type="Run")
+    assert "Pace: 5:00 /km" in result
+    assert "GAP: 5:20 /km" in result
+    assert "Avg Cadence: 170 spm" in result
+    assert "m/s" not in result
+    assert "rpm" not in result
+
+
+def test_format_intervals_ride_keeps_ms_and_rpm():
+    """Non-running activities keep m/s speed and rpm cadence."""
+    result = format_intervals(INTERVALS_DATA)
+    assert "Avg Speed: 6 m/s" in result
+    assert "Avg Cadence: 90 rpm" in result
 
 
 def test_format_power_curves():
