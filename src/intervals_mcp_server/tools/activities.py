@@ -322,17 +322,28 @@ async def get_activity_streams(
     Args:
         activity_id: The Intervals.icu activity ID
         api_key: The Intervals.icu API key (optional, will use API_KEY from .env if not provided)
-        stream_types: Comma-separated list of stream types to retrieve (optional, defaults to all available types)
+        stream_types: Comma-separated list of stream types to retrieve (optional, defaults to a broad set)
                      Available types: time, watts, heartrate, cadence, altitude, distance,
-                     core_temperature, skin_temperature, velocity_smooth
+                     core_temperature, skin_temperature, velocity_smooth, and the running-dynamics
+                     streams: stance_time, stance_time_percent, stance_time_balance,
+                     vertical_oscillation, vertical_ratio, vertical_speed, step_length,
+                     stride_length, leg_spring_stiffness, impact_loading_rate, flight_time,
+                     flight_ratio
     """
     # Build query parameters
     params = {}
     if stream_types:
         params["types"] = stream_types
     else:
-        # Default to common stream types if none specified
-        params["types"] = "time,watts,heartrate,cadence,altitude,distance,velocity_smooth"
+        # Default to a broad set covering the common streams plus running dynamics.
+        # Unknown-to-this-activity names are omitted from the response, not errors.
+        params["types"] = (
+            "time,watts,heartrate,cadence,altitude,distance,velocity_smooth,"
+            "stance_time,stance_time_percent,stance_time_balance,"
+            "vertical_oscillation,vertical_ratio,vertical_speed,"
+            "step_length,stride_length,leg_spring_stiffness,impact_loading_rate,"
+            "flight_time,flight_ratio"
+        )
 
     # Call the Intervals.icu API
     result = await make_intervals_request(
